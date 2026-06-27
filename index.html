@@ -1,0 +1,664 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>LoftAlgoTrades — Live Dashboard</title>
+<meta name="description" content="Advanced algorithmic trading systems — by SravanK"/>
+<meta property="og:title" content="Advanced algorithmic trading systems"/>
+<meta property="og:description" content="by SravanK"/>
+<meta property="og:type" content="website"/>
+<meta property="og:url" content="https://loftalgotrades.in"/>
+<meta property="og:site_name" content="LoftAlgoTrades"/>
+<meta name="twitter:card" content="summary"/>
+<meta name="twitter:title" content="Advanced algorithmic trading systems"/>
+<meta name="twitter:description" content="by SravanK"/>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+<style>
+:root {
+  --bg:      #080c0f;
+  --surf:    #0d1318;
+  --surf2:   #111820;
+  --border:  #1a2530;
+  --border2: #243040;
+  --text:    #c8d8e8;
+  --muted:   #4a6070;
+  --accent:  #00c896;
+  --blue:    #0090ff;
+  --red:     #ff4466;
+  --green:   #00c896;
+  --yellow:  #f0b429;
+  --orange:  #f07430;
+  --purple:  #9b6dff;
+  --mono:    'IBM Plex Mono', monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:var(--mono);font-size:13px;min-height:100vh}
+body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:9999;
+  background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,200,150,.012) 2px,rgba(0,200,150,.012) 4px)}
+
+/* Header */
+header{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;
+  padding:12px 24px;border-bottom:1px solid var(--border);
+  background:var(--surf);position:sticky;top:0;z-index:200}
+.logo{display:flex;align-items:center;gap:10px}
+.logo-mark{width:28px;height:28px;display:flex;align-items:center;justify-content:center;
+  border:1px solid var(--accent);border-radius:4px;color:var(--accent);font-size:14px;font-weight:700}
+.logo-copy{display:grid;gap:1px}
+.logo-title{font-size:13px;font-weight:600;letter-spacing:.1em;color:var(--accent)}
+.logo-sub{font-size:9px;color:var(--muted);letter-spacing:.1em;text-transform:uppercase}
+.header-right{display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+.svc-status{display:flex;align-items:center;gap:6px;font-size:10px;color:var(--muted)}
+.svc-dot{width:7px;height:7px;border-radius:50%;background:var(--muted);transition:all .3s}
+.svc-dot.ok{background:var(--green);box-shadow:0 0 8px var(--green)}
+.svc-dot.err{background:var(--red);box-shadow:0 0 8px var(--red)}
+.svc-dot.loading{background:var(--yellow);animation:blink .8s ease-in-out infinite}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
+.clock{font-size:11px;color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap}
+.refresh-badge{font-size:9px;color:var(--muted);border:1px solid var(--border2);
+  padding:2px 8px;border-radius:2px;white-space:nowrap;cursor:pointer}
+.refresh-badge:hover{color:var(--accent);border-color:rgba(0,200,150,.4)}
+
+/* Service Tabs */
+.svc-nav{display:flex;background:var(--surf);border-bottom:1px solid var(--border);
+  padding:0 24px;position:sticky;top:53px;z-index:190;overflow-x:auto;
+  -webkit-overflow-scrolling:touch;scrollbar-width:none}
+.svc-nav::-webkit-scrollbar{display:none}
+.svc-btn{font-family:var(--mono);font-size:11px;font-weight:500;letter-spacing:.12em;
+  text-transform:uppercase;padding:11px 20px;background:none;border:none;
+  color:var(--muted);cursor:pointer;border-bottom:2px solid transparent;
+  transition:color .15s,border-color .15s;white-space:nowrap;display:flex;align-items:center;gap:8px}
+.svc-btn:hover{color:var(--text)}
+.svc-btn.active{color:var(--accent);border-bottom-color:var(--accent)}
+.svc-dot-inline{width:6px;height:6px;border-radius:50%;background:var(--muted);transition:all .3s}
+.svc-dot-inline.ok{background:var(--green);box-shadow:0 0 6px var(--green)}
+.svc-dot-inline.err{background:var(--red);box-shadow:0 0 6px var(--red)}
+.svc-dot-inline.loading{background:var(--yellow);animation:blink .8s ease-in-out infinite}
+
+/* Layout */
+.tab-content{display:none}
+.tab-content.active{display:block}
+.page{padding:20px 24px;max-width:1600px;width:100%;margin:0 auto;
+  display:grid;gap:20px;grid-template-columns:minmax(0,1fr)}
+
+/* Offline banner */
+.offline-banner{background:rgba(255,68,102,.08);border:1px solid rgba(255,68,102,.3);
+  border-radius:4px;padding:16px 20px;text-align:center;color:var(--red);font-size:12px;letter-spacing:.05em}
+
+/* Summary strip */
+.summary-strip{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px}
+.stat-card{background:var(--surf);border:1px solid var(--border);border-radius:4px;
+  padding:14px 16px;display:grid;gap:5px}
+.stat-label{font-size:9px;color:var(--muted);letter-spacing:.14em;text-transform:uppercase}
+.stat-value{font-size:20px;font-weight:600;font-variant-numeric:tabular-nums}
+.stat-sub{font-size:10px;color:var(--muted)}
+.stat-value.pos{color:var(--green)}
+.stat-value.neg{color:var(--red)}
+.stat-value.neutral{color:var(--text)}
+
+/* Mode selector */
+.mode-bar{display:flex;align-items:center;gap:8px;padding:12px 0;flex-wrap:wrap}
+.mode-bar-label{font-size:9px;color:var(--muted);letter-spacing:.14em;text-transform:uppercase;margin-right:4px}
+.mode-btn{font-family:var(--mono);font-size:9px;font-weight:600;letter-spacing:.12em;
+  text-transform:uppercase;padding:5px 12px;border-radius:3px;cursor:pointer;
+  border:1px solid var(--border2);background:transparent;color:var(--muted);
+  transition:all .15s;white-space:nowrap}
+.mode-btn:hover{color:var(--text);border-color:var(--border2)}
+.mode-btn.active{color:var(--bg);background:var(--accent);border-color:var(--accent)}
+.mode-btn.m-shadow{--mc:var(--yellow)}
+.mode-btn.m-shadow.active{background:var(--yellow);border-color:var(--yellow)}
+.mode-btn.m-shadow-time{--mc:var(--orange)}
+.mode-btn.m-shadow-time.active{background:var(--orange);border-color:var(--orange)}
+.mode-btn.m-sim{--mc:var(--blue)}
+.mode-btn.m-sim.active{background:var(--blue);border-color:var(--blue)}
+.mode-btn.m-story{--mc:var(--purple)}
+.mode-btn.m-story.active{background:var(--purple);border-color:var(--purple)}
+.mode-btn.m-live{--mc:var(--green)}
+.mode-btn.m-live.active{background:var(--green);border-color:var(--green)}
+.mode-btn.m-struct{--mc:#00e5ff}
+.mode-btn.m-struct.active{background:#00e5ff;border-color:#00e5ff;color:var(--bg)}
+.mode-btn.m-intraday{--mc:var(--accent)}
+.mode-btn.m-intraday.active{background:var(--accent);border-color:var(--accent)}
+.mode-btn.m-swing{--mc:var(--blue)}
+.mode-btn.m-swing.active{background:var(--blue);border-color:var(--blue)}
+
+/* Lane cards */
+.cards-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:12px}
+.book-card{background:var(--surf);border:1px solid var(--border);border-radius:4px;
+  padding:14px 16px;display:grid;gap:8px;position:relative;overflow:hidden;
+  transition:border-color .2s,box-shadow .2s}
+.book-card.selected{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent) inset}
+.book-card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px}
+.book-card.shadow-raw::before{background:var(--yellow)}
+.book-card.shadow-time::before{background:var(--orange)}
+.book-card.live-sim::before{background:var(--blue)}
+.book-card.story::before{background:var(--purple)}
+.book-card.live-real::before{background:var(--green)}
+.book-card.struct::before{background:#00e5ff}
+.book-card.intraday::before{background:var(--accent)}
+.book-card.swing::before{background:var(--blue)}
+.book-card.all::before{background:var(--muted)}
+.card-label{font-size:9px;color:var(--muted);letter-spacing:.14em;text-transform:uppercase}
+.card-pnl{font-size:18px;font-weight:600;font-variant-numeric:tabular-nums}
+.card-pnl.pos{color:var(--green)}
+.card-pnl.neg{color:var(--red)}
+.card-pnl.zero{color:var(--muted)}
+.card-stats{display:flex;gap:10px;font-size:10px;color:var(--muted);flex-wrap:wrap}
+.card-stat{display:flex;gap:4px}
+.card-stat .v{color:var(--text)}
+.card-stat .v.pos{color:var(--green)}
+.card-stat .v.neg{color:var(--red)}
+
+/* Section */
+.section-hdr{display:flex;align-items:center;justify-content:space-between;
+  padding-bottom:10px;border-bottom:1px solid var(--border);margin-bottom:12px}
+.section-title{font-size:10px;color:var(--muted);letter-spacing:.16em;text-transform:uppercase}
+.section-count{font-size:10px;color:var(--muted);background:var(--surf2);
+  border:1px solid var(--border);padding:2px 8px;border-radius:2px}
+.section-box{background:var(--surf);border:1px solid var(--border);border-radius:4px;padding:16px;min-width:0}
+
+/* Tables */
+.tbl-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;max-width:100%;
+  background:var(--surf);border:1px solid var(--border);border-radius:4px}
+table{width:100%;border-collapse:collapse;font-size:11px}
+th{font-size:9px;color:var(--muted);letter-spacing:.12em;text-transform:uppercase;
+  padding:9px 12px;border-bottom:1px solid var(--border);white-space:nowrap;text-align:left;
+  background:var(--surf2)}
+td{padding:8px 12px;border-bottom:1px solid rgba(26,37,48,.6);vertical-align:middle;
+  font-variant-numeric:tabular-nums}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:rgba(255,255,255,.02)}
+.td-pos{color:var(--green)}
+.td-neg{color:var(--red)}
+.td-muted{color:var(--muted)}
+.td-label{font-size:9px;font-weight:600;letter-spacing:.1em;padding:2px 6px;
+  border-radius:2px;white-space:nowrap;display:inline-block}
+.lbl-buy{color:var(--green);background:rgba(0,200,150,.1);border:1px solid rgba(0,200,150,.25)}
+.lbl-sell{color:var(--red);background:rgba(255,68,102,.1);border:1px solid rgba(255,68,102,.25)}
+.lbl-skip{color:var(--muted);background:rgba(74,96,112,.1);border:1px solid var(--border)}
+.lbl-exec{color:var(--blue);background:rgba(0,144,255,.1);border:1px solid rgba(0,144,255,.25)}
+.lbl-err{color:var(--orange);background:rgba(240,116,48,.1);border:1px solid rgba(240,116,48,.25)}
+.tag{font-size:9px;padding:1px 5px;border-radius:2px;letter-spacing:.08em}
+.tag-shadow{color:var(--yellow);background:rgba(240,180,41,.1);border:1px solid rgba(240,180,41,.25)}
+.tag-sim{color:var(--blue);background:rgba(0,144,255,.1);border:1px solid rgba(0,144,255,.25)}
+.tag-story{color:var(--purple);background:rgba(155,109,255,.1);border:1px solid rgba(155,109,255,.25)}
+.tag-live{color:var(--green);background:rgba(0,200,150,.1);border:1px solid rgba(0,200,150,.25)}
+.empty-row{padding:20px;text-align:center;color:var(--muted);font-size:11px}
+.loading-row{padding:20px;text-align:center;color:var(--muted);font-size:11px;animation:blink 1s ease-in-out infinite}
+.unr-bar{display:none;align-items:center;gap:16px;padding:10px 14px;
+  background:var(--surf2);border:1px solid var(--border2);border-radius:4px;margin-bottom:10px;flex-wrap:wrap}
+
+/* Embedded algo_v2 dashboard */
+.algo-frame-shell{display:grid;gap:0;min-height:calc(100vh - 106px);background:#0d1117}
+.algo-frame-shell .offline-banner{margin:16px 24px 0}
+.algo-frame{width:100%;height:calc(100vh - 106px);min-height:720px;border:0;background:#0d1117;display:block}
+
+/* ── Responsive ── */
+@media (max-width:700px) {
+  /* Header */
+  header{padding:10px 16px;gap:8px}
+  .logo-sub{display:none}
+  .logo-title{font-size:11px;letter-spacing:.06em}
+  .logo-mark{width:24px;height:24px;font-size:12px}
+  .svc-status{display:none}
+  .header-right{gap:10px}
+  .clock{font-size:10px;min-width:auto}
+  .refresh-badge{font-size:9px;padding:2px 6px}
+  /* Nav: horizontal scroll */
+  .svc-nav{padding:0 14px;overflow-x:auto;-webkit-overflow-scrolling:touch;
+    scrollbar-width:none;flex-wrap:nowrap}
+  .svc-nav::-webkit-scrollbar{display:none}
+  .svc-btn{padding:9px 12px;font-size:10px;white-space:nowrap;flex-shrink:0}
+  /* Content */
+  .page{padding:12px;gap:12px}
+  .summary-strip{grid-template-columns:repeat(3,1fr);gap:8px}
+  .stat-card{padding:9px 8px}
+  .stat-value{font-size:14px}
+  .stat-label{font-size:8px}
+  .stat-sub{font-size:9px}
+  /* Mode bar: WRAP — all buttons visible, no scroll */
+  .mode-bar{gap:5px;padding:8px 0;flex-wrap:wrap;overflow-x:visible}
+  .mode-btn{font-size:8px;padding:3px 8px;flex-shrink:0}
+  .mode-bar-label{display:none}
+  /* Lane cards: 3-column */
+  .cards-grid{grid-template-columns:repeat(3,1fr);gap:8px}
+  .card-pnl{font-size:12px}
+  .card-label{font-size:8px}
+  .card-stats{font-size:9px;gap:6px}
+  /* Section boxes */
+  .section-box{padding:10px}
+  .unr-bar{gap:8px;padding:7px 10px;font-size:10px}
+  /* Tables: compact, no horizontal scroll */
+  th,td{padding:3px 5px;font-size:9px;white-space:nowrap}
+  td strong{font-size:9px}
+  .td-label{font-size:8px;padding:1px 4px}
+  .tag{font-size:8px;padding:1px 4px}
+  /* Hide P&L percentage to save width */
+  .pct-sub{display:none}
+  /* Open Positions: hide Stop(5) Target(6) Qty(7) — keeps 7 cols */
+  .pos-tbl th:nth-child(5),.pos-tbl td:nth-child(5),
+  .pos-tbl th:nth-child(6),.pos-tbl td:nth-child(6),
+  .pos-tbl th:nth-child(7),.pos-tbl td:nth-child(7){display:none}
+  /* Closed Trades: hide Exit Reason(7) only — keeps Symbol TF Side Entry Exit P&L Lane Closed */
+  .trades-tbl th:nth-child(7),.trades-tbl td:nth-child(7){display:none}
+  .algo-frame-shell{min-height:calc(100vh - 92px)}
+  .algo-frame-shell .offline-banner{margin:12px}
+  .algo-frame{height:calc(100vh - 92px);min-height:680px}
+}
+@media (max-width:400px) {
+  .stat-value{font-size:12px}
+  .stat-card{padding:7px}
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <div class="logo-mark">L</div>
+    <div class="logo-copy">
+      <div class="logo-title">LOFTALGOTRADES</div>
+      <div class="logo-sub">Live Read-Only Dashboard</div>
+    </div>
+  </div>
+  <div class="header-right">
+    <div class="svc-status"><div class="svc-dot loading" id="dot-crypto"></div><span>Crypto / Delta</span></div>
+    <div class="svc-status"><div class="svc-dot loading" id="dot-algo-v2"></div><span>Algo V2</span></div>
+    <div class="refresh-badge" id="refresh-badge" onclick="loadAll()">Refreshing…</div>
+    <div class="clock" id="clock">--:--:--</div>
+  </div>
+</header>
+
+<nav class="svc-nav">
+  <button class="svc-btn active" onclick="switchTab('algo-v2')" id="svc-btn-algo-v2">
+    <span class="svc-dot-inline loading" id="tab-dot-algo-v2"></span>ALGO V2
+  </button>
+  <button class="svc-btn" onclick="switchTab('crypto')" id="svc-btn-crypto">
+    <span class="svc-dot-inline loading" id="tab-dot-crypto"></span>CRYPTO · DELTA
+  </button>
+</nav>
+
+<!-- ══════════════ CRYPTO TAB ══════════════ -->
+<div class="tab-content" id="tab-crypto">
+  <div class="page">
+    <div id="crypto-offline" class="offline-banner" style="display:none">CRYPTO BOT OFFLINE</div>
+
+    <div class="summary-strip">
+      <div class="stat-card"><div class="stat-label">Today P&L</div><div class="stat-value neutral" id="c-today-pnl">—</div><div class="stat-sub" id="c-today-sub">Realized</div></div>
+      <div class="stat-card"><div class="stat-label">Month P&L</div><div class="stat-value neutral" id="c-month-pnl">—</div><div class="stat-sub" id="c-month-sub">This month</div></div>
+      <div class="stat-card"><div class="stat-label">Year P&L</div><div class="stat-value neutral" id="c-year-pnl">—</div><div class="stat-sub" id="c-year-sub">Year to date</div></div>
+      <div class="stat-card"><div class="stat-label">Unrealized</div><div class="stat-value neutral" id="c-unrealized">—</div><div class="stat-sub">Open positions</div></div>
+      <div class="stat-card"><div class="stat-label">Open</div><div class="stat-value neutral" id="c-open-count">—</div><div class="stat-sub">Active positions</div></div>
+      <div class="stat-card"><div class="stat-label">Closed Today</div><div class="stat-value neutral" id="c-closed-today">—</div><div class="stat-sub" id="c-closed-sub">Completed</div></div>
+    </div>
+
+    <div class="mode-bar" id="c-mode-btns">
+      <span class="mode-bar-label">Mode</span>
+      <button class="mode-btn active" data-mode="all" onclick="setCryptoMode('all')">ALL</button>
+      <button class="mode-btn m-shadow" data-mode="SHADOW_RAW" onclick="setCryptoMode('SHADOW_RAW')">SHADOW RAW</button>
+      <button class="mode-btn m-shadow-time" data-mode="SHADOW_TIME_RAW" onclick="setCryptoMode('SHADOW_TIME_RAW')">SHADOW TIME</button>
+      <button class="mode-btn m-sim" data-mode="LIVE_SIMULATION" onclick="setCryptoMode('LIVE_SIMULATION')">LIVE SIM</button>
+      <button class="mode-btn m-story" data-mode="STORY_LLM" onclick="setCryptoMode('STORY_LLM')">STORY LLM</button>
+      <button class="mode-btn m-live" data-mode="LIVE_REAL" onclick="setCryptoMode('LIVE_REAL')">LIVE REAL</button>
+      <button class="mode-btn m-struct" data-mode="STRUCTURE_TRADER" onclick="setCryptoMode('STRUCTURE_TRADER')">STRUCTURE</button>
+    </div>
+
+    <div>
+      <div class="section-hdr"><div class="section-title">Lane Performance — Today</div></div>
+      <div class="cards-grid">
+        <div class="book-card shadow-raw" id="ccard-SHADOW_RAW"><div class="card-label">Shadow Raw</div><div class="card-pnl zero" id="cl-SHADOW_RAW-pnl">—</div><div class="card-stats" id="cl-SHADOW_RAW-stats"></div></div>
+        <div class="book-card shadow-time" id="ccard-SHADOW_TIME_RAW"><div class="card-label">Shadow Time Raw</div><div class="card-pnl zero" id="cl-SHADOW_TIME_RAW-pnl">—</div><div class="card-stats" id="cl-SHADOW_TIME_RAW-stats"></div></div>
+        <div class="book-card live-sim" id="ccard-LIVE_SIMULATION"><div class="card-label">Live Simulation</div><div class="card-pnl zero" id="cl-LIVE_SIMULATION-pnl">—</div><div class="card-stats" id="cl-LIVE_SIMULATION-stats"></div></div>
+        <div class="book-card story" id="ccard-STORY_LLM"><div class="card-label">Story LLM</div><div class="card-pnl zero" id="cl-STORY_LLM-pnl">—</div><div class="card-stats" id="cl-STORY_LLM-stats"></div></div>
+        <div class="book-card live-real" id="ccard-LIVE_REAL"><div class="card-label">Live Real</div><div class="card-pnl zero" id="cl-LIVE_REAL-pnl">—</div><div class="card-stats" id="cl-LIVE_REAL-stats"></div></div>
+        <div class="book-card struct" id="ccard-STRUCTURE_TRADER"><div class="card-label">Structure</div><div class="card-pnl zero" id="cl-STRUCTURE_TRADER-pnl">—</div><div class="card-stats" id="cl-STRUCTURE_TRADER-stats"></div></div>
+      </div>
+    </div>
+
+    <div class="section-box">
+      <div class="section-hdr">
+        <div class="section-title">Open Positions</div>
+        <div class="section-count" id="c-pos-count">0</div>
+      </div>
+      <div class="unr-bar" id="c-total-unr"></div>
+      <div class="tbl-wrap"><table class="pos-tbl">
+        <thead><tr><th>Symbol</th><th>TF</th><th>Side</th><th>Entry</th><th>Stop</th><th>Target</th><th>Qty</th><th>Unr. P&L</th><th>Lane</th><th>Opened</th></tr></thead>
+        <tbody id="c-positions-body"><tr><td colspan="10" class="loading-row">Loading…</td></tr></tbody>
+      </table></div>
+    </div>
+
+    <div class="section-box">
+      <div class="section-hdr">
+        <div class="section-title">Closed Trades — Today</div>
+        <div class="section-count" id="c-trades-count">0</div>
+      </div>
+      <div class="tbl-wrap"><table class="trades-tbl">
+        <thead><tr><th>Symbol</th><th>TF</th><th>Side</th><th>Entry</th><th>Exit</th><th>P&L</th><th>Exit Reason</th><th>Lane</th><th>Closed</th></tr></thead>
+        <tbody id="c-trades-body"><tr><td colspan="9" class="loading-row">Loading…</td></tr></tbody>
+      </table></div>
+    </div>
+  </div>
+</div>
+
+<div class="tab-content active" id="tab-algo-v2">
+  <div class="algo-frame-shell">
+    <div id="algo-v2-offline" class="offline-banner" style="display:none">ALGO V2 OFFLINE</div>
+    <iframe id="algo-v2-frame" class="algo-frame" src="/algo-v2/?v=ticker-fix-20260603" title="algo_v2 dashboard"></iframe>
+  </div>
+</div>
+
+<script>
+'use strict';
+
+const TODAY = new Date().toISOString().slice(0,10);
+let _refreshTimer = null;
+let _countdown = 30;
+let _cryptoMode = 'all';
+let _cryptoData = null;
+
+// ── Tab switching ──────────────────────────────────────────────────────────
+function switchTab(tab) {
+  ['crypto','algo-v2'].forEach(t => {
+    document.getElementById(`tab-${t}`).classList.toggle('active', t === tab);
+    document.getElementById(`svc-btn-${t}`).classList.toggle('active', t === tab);
+  });
+  if (tab === 'algo-v2') {
+    const frame = document.getElementById('algo-v2-frame');
+    if (frame?.contentWindow) {
+      frame.contentWindow.postMessage({type: 'algo-v2-visible'}, window.location.origin);
+    }
+  }
+}
+
+// ── Clock ──────────────────────────────────────────────────────────────────
+function updateClock() {
+  const ist = new Date(new Date().toLocaleString('en-US', {timeZone:'Asia/Kolkata'}));
+  document.getElementById('clock').textContent = ist.toTimeString().slice(0,8) + ' IST';
+}
+setInterval(updateClock, 1000);
+updateClock();
+
+// ── Market Hours ───────────────────────────────────────────────────────────
+function isMarketOpen() {
+  const ist = new Date(new Date().toLocaleString('en-US', {timeZone:'Asia/Kolkata'}));
+  const day = ist.getDay(); // 0=Sun, 6=Sat
+  if (day === 0 || day === 6) return false;
+  const mins = ist.getHours() * 60 + ist.getMinutes();
+  return mins >= 9 * 60 + 15 && mins < 15 * 60 + 30;
+}
+
+// ── Countdown ─────────────────────────────────────────────────────────────
+function startCountdown() {
+  if (_refreshTimer) clearInterval(_refreshTimer);
+  const el = document.getElementById('refresh-badge');
+  if (!isMarketOpen()) {
+    el.textContent = 'Market Closed';
+    // Poll every 60s; kick off a real refresh the moment market opens
+    _refreshTimer = setInterval(() => { if (isMarketOpen()) { clearInterval(_refreshTimer); loadAll(); } }, 60000);
+    return;
+  }
+  _countdown = 30;
+  _refreshTimer = setInterval(() => {
+    _countdown--;
+    el.textContent = _countdown > 0 ? `Refresh in ${_countdown}s` : 'Refreshing…';
+    if (_countdown <= 0) { clearInterval(_refreshTimer); loadAll(); }
+  }, 1000);
+}
+
+// ── Helpers ────────────────────────────────────────────────────────────────
+const fmt     = (v,d=2) => v==null ? '—' : Number(v).toLocaleString('en-IN',{minimumFractionDigits:d,maximumFractionDigits:d});
+const fmtP    = v => v==null ? '—' : (v>=0?'+':'')+fmt(v);
+const fmtAuto = v => v==null ? '—' : Math.abs(Number(v))>=1000 ? fmt(v,0) : fmt(v,2);
+const cls  = v => v==null ? 'neutral' : v>0 ? 'pos' : v<0 ? 'neg' : 'neutral';
+const esc  = s => String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+const ts   = v => {
+  if (!v) return '—';
+  try { return new Date(v).toLocaleTimeString('en-IN',{timeZone:'Asia/Kolkata',hour:'2-digit',minute:'2-digit',hour12:false}); }
+  catch { return String(v).slice(11,16); }
+};
+
+function pnlHtml(v) {
+  return v == null ? '<span class="td-muted">—</span>'
+    : `<span class="${v>0?'td-pos':v<0?'td-neg':'td-muted'}">${fmtP(v)}</span>`;
+}
+function sideLabel(a) {
+  const v = String(a||'').toUpperCase();
+  return v==='BUY'  ? `<span class="td-label lbl-buy">BUY</span>`
+       : v==='SELL' ? `<span class="td-label lbl-sell">SELL</span>`
+       : `<span class="td-label lbl-skip">${esc(v)||'—'}</span>`;
+}
+function bookTag(b) {
+  const v = String(b||'').toUpperCase();
+  if (v.includes('SHADOW_TIME')) return `<span class="tag" style="color:var(--orange);background:rgba(240,116,48,.08);border:1px solid rgba(240,116,48,.25)">SHDW-T</span>`;
+  if (v.includes('SHADOW_RAW'))  return `<span class="tag tag-shadow">SHADOW</span>`;
+  if (v.includes('LIVE_SIM'))    return `<span class="tag tag-sim">SIM</span>`;
+  if (v.includes('STORY'))       return `<span class="tag tag-story">STORY</span>`;
+  if (v.includes('LIVE_REAL'))   return `<span class="tag tag-live">LIVE</span>`;
+  return `<span class="tag" style="color:var(--muted);border:1px solid var(--border)">${esc(v)||'—'}</span>`;
+}
+function modeTag(m) {
+  const v = String(m||'').toLowerCase();
+  if (v.includes('intraday')) return `<span class="tag tag-live">INTRADAY</span>`;
+  if (v.includes('swing'))    return `<span class="tag tag-sim">SWING</span>`;
+  if (v.includes('live'))     return `<span class="tag tag-live">${esc(m)}</span>`;
+  if (v.includes('paper'))    return `<span class="tag tag-shadow">${esc(m)}</span>`;
+  return `<span class="tag" style="color:var(--muted);border:1px solid var(--border)">${esc(m)||'—'}</span>`;
+}
+function dotState(id, offline)       { document.getElementById(id).className = 'svc-dot '       + (offline?'err':'ok'); }
+function inlineDotState(id, offline) { document.getElementById(id).className = 'svc-dot-inline '+ (offline?'err':'ok'); }
+
+// ── P&L summary for a mode ─────────────────────────────────────────────────
+function getCryptoPnl(data, mode) {
+  if (!data) return {};
+  if (mode === 'all') return data.book_summaries?.all?.pnl_summary || {};
+  return data.book_label_summaries?.[mode]?.pnl_summary || {};
+}
+
+// ── Summary strip ──────────────────────────────────────────────────────────
+function updateSummary(prefix, ps, openPositions, closedTrades, mode) {
+  const day   = ps.day   || {};
+  const month = ps.month || {};
+  const year  = ps.year  || {};
+  const suffix = mode === 'all' ? '' : ` · ${mode.replace('_',' ')}`;
+
+  const set = (id, v) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.textContent = fmtP(v);
+    el.className = `stat-value ${cls(v)}`;
+  };
+  set(`${prefix}-today-pnl`, day.pnl ?? null);
+  set(`${prefix}-month-pnl`, month.pnl ?? null);
+  set(`${prefix}-year-pnl`,  year.pnl ?? null);
+
+  // Sub-labels with W/L
+  const wl = d => d.trades ? ` (${d.wins||0}W/${d.losses||0}L)` : '';
+  const sub = (id, d) => { const e = document.getElementById(id); if (e) e.textContent = (d.trades ? `${d.trades} trades${wl(d)}` : '—'); };
+  sub(`${prefix}-today-sub`, day);
+  sub(`${prefix}-month-sub`, month);
+  sub(`${prefix}-year-sub`,  year);
+
+  // Unrealized
+  const totalUnr = (openPositions||[]).reduce((s,p)=>s+(p.unrealized_pnl??0), 0);
+  const unrEl = document.getElementById(`${prefix}-unrealized`);
+  if (unrEl) { unrEl.textContent = fmtP(Math.round(totalUnr*100)/100); unrEl.className = `stat-value ${cls(totalUnr)}`; }
+
+  // Open count
+  const openEl = document.getElementById(`${prefix}-open-count`);
+  if (openEl) { openEl.textContent = String((openPositions||[]).length); openEl.className = 'stat-value neutral'; }
+
+  // Closed today (filtered)
+  const ct = (closedTrades||[]).filter(t => t.trade_date===TODAY||String(t.closed_at||'').startsWith(TODAY)).length;
+  const ctEl = document.getElementById(`${prefix}-closed-today`);
+  if (ctEl) { ctEl.textContent = String(ct); ctEl.className = 'stat-value neutral'; }
+  const ctSub = document.getElementById(`${prefix}-closed-sub`);
+  if (ctSub) ctSub.textContent = ct ? `${ct} completed` : 'None today';
+}
+
+// ── Lane / Book cards ──────────────────────────────────────────────────────
+function updateCard(cardId, pnlId, statsId, pnlSummary) {
+  if (!pnlSummary) return;
+  const day   = pnlSummary.day   || {};
+  const month = pnlSummary.month || {};
+  const pnl = day.pnl ?? null;
+  const el = document.getElementById(pnlId);
+  if (el) { el.textContent = fmtP(pnl); el.className = 'card-pnl '+(pnl==null?'zero':pnl>0?'pos':pnl<0?'neg':'zero'); }
+  const se = document.getElementById(statsId);
+  if (se) {
+    const wl = day.trades!=null ? `<div class="card-stat"><span>W/L</span><span class="v pos">${day.wins||0}</span>/<span class="v neg">${day.losses||0}</span></div>` : '';
+    const tr = day.trades!=null ? `<div class="card-stat"><span>Trades</span><span class="v">${day.trades}</span></div>` : '';
+    const mo = month.pnl!=null  ? `<div class="card-stat"><span>Mo</span><span class="v ${cls(month.pnl)}">${fmtP(month.pnl)}</span></div>` : '';
+    se.innerHTML = wl + tr + mo;
+  }
+}
+
+// ── Positions table ────────────────────────────────────────────────────────
+function renderPositions(tbodyId, countId, unrBarId, positions, tagFn) {
+  const el = document.getElementById(tbodyId);
+  const ce = document.getElementById(countId);
+  const ub = document.getElementById(unrBarId);
+  if (!el) return;
+  if (!positions || !positions.length) {
+    el.innerHTML = `<tr><td colspan="10" class="empty-row">No open positions</td></tr>`;
+    if (ce) ce.textContent = '0';
+    if (ub) ub.style.display = 'none';
+    return;
+  }
+  if (ce) ce.textContent = String(positions.length);
+
+  const totalUnr = positions.reduce((s,p)=>s+(p.unrealized_pnl??0), 0);
+  if (ub) {
+    ub.style.display = 'flex';
+    const c = totalUnr>0?'var(--green)':totalUnr<0?'var(--red)':'var(--muted)';
+    ub.innerHTML = `<span style="font-size:9px;color:var(--muted);letter-spacing:.12em;text-transform:uppercase">Total Unrealized</span>`
+      + `<span style="font-size:16px;font-weight:600;color:${c};font-variant-numeric:tabular-nums">${fmtP(Math.round(totalUnr*100)/100)}</span>`
+      + `<span style="font-size:10px;color:var(--muted)">${positions.length} positions</span>`;
+  }
+
+  el.innerHTML = positions.map(p => {
+    const upnl = p.unrealized_pnl ?? null;
+    const tf = p.timeframe ? String(p.timeframe).replace('m','') : (p.tf||'—');
+    const book = p.book_label||p.execution_mode||p.trading_mode||p.book||'';
+    let pctHtml = '';
+    if (upnl!=null && p.entry_price && p.quantity) {
+      const pct = (upnl/(p.entry_price*p.quantity))*100;
+      pctHtml = ` <span class="pct-sub" style="font-size:9px;color:var(--muted)">(${pct>=0?'+':''}${pct.toFixed(2)}%)</span>`;
+    }
+    return `<tr>
+      <td><strong>${esc(p.symbol||'—')}</strong></td>
+      <td class="td-muted">${esc(tf)}m</td>
+      <td>${sideLabel(p.action)}</td>
+      <td>${fmtAuto(p.entry_price)}</td>
+      <td class="td-muted">${fmtAuto(p.stop_loss)}</td>
+      <td class="td-muted">${fmtAuto(p.target)}</td>
+      <td class="td-muted">${fmt(p.quantity,0)}</td>
+      <td>${pnlHtml(upnl)}${pctHtml}</td>
+      <td>${tagFn(book)}</td>
+      <td class="td-muted">${ts(p.opened_at)}</td>
+    </tr>`;
+  }).join('');
+}
+
+// ── Closed trades table ────────────────────────────────────────────────────
+function renderTrades(tbodyId, countId, trades, tagFn) {
+  const today = (trades||[]).filter(t=>t.trade_date===TODAY||String(t.closed_at||'').startsWith(TODAY));
+  today.sort((a,b)=>String(b.closed_at||'').localeCompare(String(a.closed_at||'')));
+  const el = document.getElementById(tbodyId);
+  const ce = document.getElementById(countId);
+  if (!el) return;
+  if (!today.length) {
+    el.innerHTML = `<tr><td colspan="9" class="empty-row">No closed trades today</td></tr>`;
+    if (ce) ce.textContent = '0';
+    return;
+  }
+  if (ce) ce.textContent = String(today.length);
+  el.innerHTML = today.slice(0,60).map(t => {
+    const book = t.book_label||t.execution_mode||t.trading_mode||t.book||'';
+    return `<tr>
+      <td>${esc(t.symbol||'—')}</td>
+      <td class="td-muted">${esc(t.timeframe||t.tf||'—')}</td>
+      <td>${sideLabel(t.action)}</td>
+      <td>${fmtAuto(t.entry_price)}</td>
+      <td>${fmtAuto(t.exit_price)}</td>
+      <td>${pnlHtml(t.pnl)}</td>
+      <td class="td-muted" style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(t.exit_reason||'—')}</td>
+      <td>${tagFn(book)}</td>
+      <td class="td-muted">${ts(t.closed_at)}</td>
+    </tr>`;
+  }).join('');
+}
+
+// ── Mode filter helpers ────────────────────────────────────────────────────
+function filterByMode(items, mode, keyFn) {
+  if (mode === 'all') return items;
+  return (items||[]).filter(i => {
+    const v = String(keyFn(i)||'').toUpperCase();
+    return v === mode.toUpperCase() || v.includes(mode.toUpperCase());
+  });
+}
+function cryptoKey(i) { return i.book_label||i.execution_mode||''; }
+
+// ── Crypto mode selection ──────────────────────────────────────────────────
+function setCryptoMode(mode) {
+  _cryptoMode = mode;
+  document.querySelectorAll('#c-mode-btns .mode-btn').forEach(b =>
+    b.classList.toggle('active', b.dataset.mode === mode));
+  // Highlight selected card
+  ['SHADOW_RAW','SHADOW_TIME_RAW','LIVE_SIMULATION','STORY_LLM','LIVE_REAL','STRUCTURE_TRADER'].forEach(m => {
+    const c = document.getElementById(`ccard-${m}`);
+    if (c) c.classList.toggle('selected', mode === m);
+  });
+  if (_cryptoData) applyCryptoMode(_cryptoData);
+}
+
+function applyCryptoMode(data) {
+  const ps = getCryptoPnl(data, _cryptoMode);
+  const positions = filterByMode(data.open_positions, _cryptoMode, cryptoKey);
+  const trades    = filterByMode(data.closed_trades,  _cryptoMode, cryptoKey);
+  updateSummary('c', ps, positions, trades, _cryptoMode);
+  renderPositions('c-positions-body','c-pos-count','c-total-unr', positions, bookTag);
+  renderTrades('c-trades-body','c-trades-count', trades, bookTag);
+}
+
+// ── Render cards ───────────────────────────────────────────────────────────
+function renderCryptoCards(data) {
+  const bls = data.book_label_summaries || {};
+  ['SHADOW_RAW','SHADOW_TIME_RAW','LIVE_SIMULATION','STORY_LLM','LIVE_REAL','STRUCTURE_TRADER'].forEach(m =>
+    updateCard(`ccard-${m}`, `cl-${m}-pnl`, `cl-${m}-stats`, bls[m]?.pnl_summary)
+  );
+}
+// ── Main render ────────────────────────────────────────────────────────────
+function renderCrypto(data) {
+  _cryptoData = data;
+  const offline = data.offline === true;
+  document.getElementById('crypto-offline').style.display = offline ? 'block' : 'none';
+  dotState('dot-crypto', offline);
+  inlineDotState('tab-dot-crypto', offline);
+  if (offline) return;
+  renderCryptoCards(data);
+  applyCryptoMode(data);
+}
+
+function renderAlgoV2(data) {
+  const offline = data.offline === true;
+  document.getElementById('algo-v2-offline').style.display = offline ? 'block' : 'none';
+  dotState('dot-algo-v2', offline);
+  inlineDotState('tab-dot-algo-v2', offline);
+}
+
+// ── Fetch ──────────────────────────────────────────────────────────────────
+async function loadAll() {
+  document.getElementById('refresh-badge').textContent = 'Refreshing…';
+  const [cr, av] = await Promise.allSettled([
+    fetch('/api/crypto/status').then(r=>r.json()).catch(()=>({offline:true})),
+    fetch('/api/algo-v2/health').then(r=>r.json()).catch(()=>({offline:true})),
+  ]);
+  renderCrypto(cr.status==='fulfilled' ? cr.value : {offline:true});
+  renderAlgoV2(av.status==='fulfilled' ? av.value : {offline:true});
+  startCountdown();
+}
+
+loadAll();
+</script>
+</body>
+</html>
