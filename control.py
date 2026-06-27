@@ -42,25 +42,38 @@ def _clear_pid() -> None:
         pass
 
 
+IS_WINDOWS = sys.platform == "win32"
+
+
 def _is_running(pid: int) -> bool:
     try:
-        result = subprocess.run(
-            ["tasklist", "/FI", f"PID eq {pid}", "/NH", "/FO", "CSV"],
-            capture_output=True, text=True, timeout=5,
-        )
-        return str(pid) in result.stdout
+        if IS_WINDOWS:
+            result = subprocess.run(
+                ["tasklist", "/FI", f"PID eq {pid}", "/NH", "/FO", "CSV"],
+                capture_output=True, text=True, timeout=5,
+            )
+            return str(pid) in result.stdout
+        else:
+            os.kill(pid, 0)
+            return True
+    except (OSError, ProcessLookupError):
+        return False
     except Exception:
         return False
 
 
 def _kill(pid: int) -> None:
     try:
-        subprocess.run(
-            ["taskkill", "/F", "/PID", str(pid)],
-            capture_output=True, timeout=10,
-        )
+        if IS_WINDOWS:
+            subprocess.run(
+                ["taskkill", "/F", "/PID", str(pid)],
+                capture_output=True, timeout=10,
+            )
+        else:
+            import signal
+            os.kill(pid, signal.SIGTERM)
     except Exception as e:
-        print(f"  [warn] taskkill failed: {e}")
+        print(f"  [warn] kill failed: {e}")
 
 
 # ── Commands ───────────────────────────────────────────────────────────────
@@ -86,15 +99,20 @@ def cmd_start() -> None:
     log = open(LOG_FILE, "a", encoding="utf-8")
     log.write(f"\n{'='*60}\n[control] Starting proxy — {time.strftime('%Y-%m-%d %H:%M:%S')}\n")
 
-    # CREATE_NO_WINDOW (0x08000000) — no console window on Windows
-    CREATE_NO_WINDOW = 0x08000000
-    proc = subprocess.Popen(
-        [sys.executable, "-m", "uvicorn", "proxy:app",
-         "--host", "0.0.0.0", "--port", str(PORT)],
+    kwargs = dict(
         cwd=str(ROOT),
         stdout=log,
         stderr=subprocess.STDOUT,
-        creationflags=CREATE_NO_WINDOW,
+    )
+    if IS_WINDOWS:
+        kwargs["creationflags"] = 0x08000000  # CREATE_NO_WINDOW
+    else:
+        kwargs["start_new_session"] = True
+
+    proc = subprocess.Popen(
+        [sys.executable, "-m", "uvicorn", "proxy:app",
+         "--host", "0.0.0.0", "--port", str(PORT)],
+        **kwargs,
     )
     _write_pid(proc.pid)
 
