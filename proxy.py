@@ -15,6 +15,7 @@ Or:
 from __future__ import annotations
 
 import os
+import secrets
 import time
 from pathlib import Path
 
@@ -32,6 +33,9 @@ AUTOBOT_BASE   = os.getenv("AUTOBOT_URL",      "http://localhost:8001")
 ALGO_V2_BASE   = os.getenv("ALGO_V2_URL",      "http://localhost:8010")
 CRYPTO_SECRET  = os.getenv("CRYPTO_SECRET",   "")
 AUTOBOT_SECRET = os.getenv("AUTOBOT_SECRET",  "")
+# Secret gating the algo_v2 "Live" tab (real broker funds / holdings / live book).
+# Empty → the Live tab is locked for everyone (fail-closed).
+ALGO_V2_LIVE_KEY = os.getenv("ALGO_V2_LIVE_KEY", "")
 PORT           = int(os.getenv("PUBLIC_DASHBOARD_PORT", "8100"))
 CACHE_TTL      = float(os.getenv("CACHE_TTL_SECONDS", "15"))
 
@@ -146,6 +150,23 @@ def _is_allowed(path: str, allowlist: frozenset[str]) -> bool:
     return clean in allowlist
 
 
+# Endpoints that expose the real live portfolio. `live/status` is always
+# protected; positions/trades/analytics only expose the live book when queried
+# with execution=live (or execution=all), so gate those on the query string.
+_ALGO_V2_LIVE_PATHS = frozenset({"live/status"})
+
+
+def _algo_v2_needs_key(path: str, query: str) -> bool:
+    clean = path.strip("/").split("?")[0]
+    if clean in _ALGO_V2_LIVE_PATHS:
+        return True
+    exec_val = ""
+    for part in query.split("&"):
+        if part.startswith("execution="):
+            exec_val = part[len("execution="):].lower()
+    return exec_val in ("live", "all")
+
+
 def _algo_v2_dashboard_html() -> str:
     html = _ALGO_V2_DASHBOARD_PATH.read_text(encoding="utf-8")
     html = html.replace("const BASE = 'http://localhost:8010';", "const BASE = '/api/algo-v2';")
@@ -159,7 +180,82 @@ def _algo_v2_dashboard_html() -> str:
 </style>""",
         1,
     )
+    # Gate the Live tab (real portfolio) behind the dashboard key. Injected only
+    # into the public proxy's copy — the local dashboard is never modified.
+    html = html.replace("</body>", _ALGO_V2_LIVE_GATE_JS + "\n</body>", 1)
     return html
+
+
+# Wraps fetch inside the proxied algo_v2 dashboard: any request that would pull
+# the real live portfolio (live/status, or execution=live/all) is held until the
+# user enters the dashboard key, which is validated server-side, cached in
+# sessionStorage, and sent as X-Dashboard-Key on every protected request.
+_ALGO_V2_LIVE_GATE_JS = """
+<script>
+(function(){
+  'use strict';
+  var STORE = 'lat_live_key';
+  var _origFetch = window.fetch.bind(window);
+  var _keyPromise = null;
+
+  function urlOf(input){
+    try { return typeof input === 'string' ? input : (input && input.url) || ''; }
+    catch(e){ return ''; }
+  }
+  function isProtected(url){
+    if (!url) return false;
+    return /\\/live\\/status(\\?|$)/.test(url) || /[?&]execution=(live|all)(&|$)/.test(url);
+  }
+  function validateKey(key){
+    return _origFetch('/api/algo-v2/live/status', {headers:{'X-Dashboard-Key':key}})
+      .then(function(r){ return r.status === 200; })
+      .catch(function(){ return false; });
+  }
+  function acquireKey(){
+    var existing = null;
+    try { existing = sessionStorage.getItem(STORE); } catch(e){}
+    if (existing) return Promise.resolve(existing);
+    if (_keyPromise) return _keyPromise;
+    _keyPromise = (async function(){
+      while (true){
+        var entered = window.prompt('\\uD83D\\uDD12 The Live tab shows real portfolio data (funds & holdings).\\nEnter the dashboard key to unlock:');
+        if (entered === null){ _keyPromise = null; return null; }
+        var key = entered.trim();
+        if (!key) continue;
+        if (await validateKey(key)){
+          try { sessionStorage.setItem(STORE, key); } catch(e){}
+          _keyPromise = null;
+          return key;
+        }
+        window.alert('Incorrect key \\u2014 try again.');
+      }
+    })();
+    return _keyPromise;
+  }
+
+  window.fetch = function(input, init){
+    var url = urlOf(input);
+    if (!isProtected(url)) return _origFetch(input, init);
+    return acquireKey().then(function(key){
+      if (!key){
+        return new Response(JSON.stringify({error:'locked', locked:true}),
+          {status:401, headers:{'Content-Type':'application/json'}});
+      }
+      var opts = Object.assign({}, init);
+      var h = new Headers((init && init.headers) ||
+        (typeof input === 'object' && input ? input.headers : undefined));
+      h.set('X-Dashboard-Key', key);
+      opts.headers = h;
+      return _origFetch(url, opts).then(function(r){
+        // A stored key that later stops working (rotated) — drop it so the
+        // next Live request re-prompts instead of silently failing.
+        if (r && r.status === 401){ try { sessionStorage.removeItem(STORE); } catch(e){} }
+        return r;
+      });
+    });
+  };
+})();
+</script>"""
 
 
 async def _proxy(base_url: str, path: str, secret: str, query: str = "") -> object:
@@ -230,6 +326,10 @@ async def serve_algo_v2_dashboard():
 async def algo_v2_proxy(path: str, request: Request):
     if not _is_allowed(path, _ALGO_V2_ALLOWED):
         raise HTTPException(status_code=403, detail="Endpoint not permitted on public dashboard")
+    if _algo_v2_needs_key(path, request.url.query):
+        provided = request.headers.get("X-Dashboard-Key", "")
+        if not ALGO_V2_LIVE_KEY or not secrets.compare_digest(provided, ALGO_V2_LIVE_KEY):
+            raise HTTPException(status_code=401, detail="Live tab requires the dashboard key")
     return JSONResponse(await _proxy(ALGO_V2_BASE, path, "", request.url.query))
 
 
