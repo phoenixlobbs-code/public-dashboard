@@ -125,6 +125,7 @@ _ALGO_V2_ALLOWED = frozenset({
     "live/status",
     "nse/events",
     "news/sentiment",
+    "pdh_live/status",
     "pdh_paper/status",
     "positions",
     "premarket/result",
@@ -153,7 +154,7 @@ def _is_allowed(path: str, allowlist: frozenset[str]) -> bool:
 # Endpoints that expose the real live portfolio. `live/status` is always
 # protected; positions/trades/analytics only expose the live book when queried
 # with execution=live (or execution=all), so gate those on the query string.
-_ALGO_V2_LIVE_PATHS = frozenset({"live/status"})
+_ALGO_V2_LIVE_PATHS = frozenset({"live/status", "pdh_live/status"})
 
 
 def _algo_v2_needs_key(path: str, query: str) -> bool:
@@ -204,7 +205,7 @@ _ALGO_V2_LIVE_GATE_JS = """
   }
   function isProtected(url){
     if (!url) return false;
-    return /\\/live\\/status(\\?|$)/.test(url) || /[?&]execution=(live|all)(&|$)/.test(url);
+    return /\\/(pdh_)?live\\/status(\\?|$)/.test(url) || /[?&]execution=(live|all)(&|$)/.test(url);
   }
   function validateKey(key){
     return _origFetch('/api/algo-v2/live/status', {headers:{'X-Dashboard-Key':key}})
